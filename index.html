@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Colméia v8.8 - Fornecedores em Lista</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: #f4f7f6; margin: 0; padding: 0; }
+        
+        /* Cabeçalho */
+        header { background-color: #1a73e8; color: white; padding: 15px; display: flex; align-items: center; justify-content: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        
+        /* Container Principal */
+        main { max-width: 98%; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        /* Barra de Ferramentas e Filtros */
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .filtros { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        
+        select, input[type="date"], input[type="text"], input[type="number"] { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
+
+        /* Botões */
+        .btn { border: none; padding: 10px 15px; font-size: 13px; cursor: pointer; border-radius: 6px; font-weight: bold; color: white; transition: 0.2s; text-decoration: none; display: inline-block; }
+        .btn-novo { background-color: #34a853; }
+        .btn-comprador { background-color: #ff6b6b; }
+        .btn-fornecedor { background-color: #fbbc05; color: #333; }
+        .btn-imprimir { background-color: #6c757d; }
+        .btn-dashboard { background-color: #8e44ad; }
+        .btn-finalizar { background-color: #1a73e8; width: 100%; padding: 15px; margin-top: 20px; font-size: 16px; font-weight: bold; }
+
+        .btn-acao { padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer; color: white; margin-right: 2px; }
+        .btn-editar { background-color: #fbbc05; color: #333; }
+        .btn-excluir { background-color: #ea4335; }
+        .btn-cupom { background-color: #17a2b8; }
+
+        /* Tabela Principal */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background-color: #f1f3f4; color: #5f6368; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Modais */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; overflow-y: auto; }
+        .modal-content { background: #fff; margin: 2% auto; padding: 25px; width: 95%; max-width: 1200px; border-radius: 12px; position: relative; }
+        .close { position: absolute; right: 20px; top: 15px; font-size: 28px; cursor: pointer; color: #666; }
+
+        /* Formulários */
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 15px; padding: 15px; border: 1px solid #eef0f2; border-radius: 8px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 12px; color: #666; }
+        .form-group input, .form-group select { width: 100%; }
+
+        /* Carrinho Modal */
+        .carrinho-container { margin-top: 15px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+        .carrinho-container table { margin-top: 0; }
+        .carrinho-container thead { background: #f8f9fa; border-bottom: 2px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="https://i.postimg.cc/cCj4sBRm/branco.png" alt="Logo" style="height: 40px;">
+    <h1 style="margin:0; font-size: 20px;">Sistema Colméia - Pro v8.8</h1>
+</header>
+
+<main>
+    <div class="toolbar">
+        <div class="filtros">
+            <input type="date" id="filtroDataIn" onchange="renderizarTabela()">
+            <span>até</span>
+            <input type="date" id="filtroDataFim" onchange="renderizarTabela()">
+            <select id="filtroComp" onchange="renderizarTabela()"><option value="">Comprador: Todos</option></select>
+            <select id="filtroForn" onchange="renderizarTabela()"><option value="">Fornecedor: Todos</option></select>
+        </div>
+        <div class="acoes">
+            <a href="dashboard.html" class="btn btn-dashboard">📊 Dashboard</a>
+            <button class="btn btn-imprimir" onclick="imprimirLista()">🖨️ Lista</button>
+            <button class="btn btn-comprador" onclick="abrirCadastro('compradores')">👤 Compradores</button>
+            <button class="btn btn-fornecedor" onclick="abrirCadastro('fornecedores')">👥 Fornecedores</button>
+            <button class="btn btn-novo" onclick="abrirModalLote()">+ Iniciar Novo Lote</button>
+        </div>
+    </div>
+
+    <table id="tabelaPrincipal">
+        <thead>
+            <tr>
+                <th width="30"><input type="checkbox" id="chkTodos" onchange="selecionarTodos()"></th>
+                <th>Data</th>
+                <th>Comprador</th>
+                <th>Fornecedor</th>
+                <th>Produto</th>
+                <th>Qtd</th>
+                <th>Custo Un.</th>
+                <th>Venda Un.</th>
+                <th style="color:#1a73e8">Lucro Un.</th>
+                <th>Lucro Total</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+</main>
+
+<div id="modalLote" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="fecharModal('modalLote')">&times;</span>
+        <h2 id="modalTitulo" style="color: #1a73e8; margin-top:0;">Novo Lote</h2>
+        <input type="hidden" id="editIndex" value="">
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Data:</label>
+                <input type="date" id="loteData" class="nav">
+            </div>
+            <div class="form-group">
+                <label>Comprador:</label>
+                <select id="loteComp" class="nav"></select>
+            </div>
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Fornecedor:</label>
+                <select id="loteForn" class="nav" onchange="buscarFornecedor()"></select>
+                <span id="labelForn" style="font-size:11px; color:#1a73e8; font-weight:bold; display:block; margin-top:2px;"></span>
+            </div>
+        </div>
+
+        <div class="form-grid" style="background:#fff; border: 1px solid #ddd;">
+            <div class="form-group" style="grid-column: span 2;">
+                <label>Produto:</label>
+                <input type="text" id="prodBusca" class="nav" autocomplete="off" onblur="buscarProduto()">
+                <span id="labelProd" style="font-size:11px; color:#1a73e8; font-weight:bold; display:block; margin-top:2px;"></span>
+            </div>
+            <div class="form-group">
+                <label>Qtd:</label>
+                <input type="number" id="prodQtd" class="nav">
+            </div>
+            <div class="form-group">
+                <label>Custo Un:</label>
+                <input type="number" id="prodCusto" class="nav" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Venda Un:</label>
+                <input type="number" id="prodVenda" class="nav" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Gasto Ex:</label>
+                <input type="number" id="prodGasto" class="nav" step="0.01" value="0">
+            </div>
+            <div class="form-group" style="display:flex; align-items:flex-end;">
+                <button type="button" id="btnAddItem" class="btn btn-novo" style="width:100%" onclick="processarBotaoItem()">+ Adicionar</button>
+            </div>
+        </div>
+
+        <div class="carrinho-container" id="areaCarrinho">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Produto</th>
+                        <th width="80">Qtd</th>
+                        <th>Custo Un</th>
+                        <th>Venda Un</th>
+                        <th>Gasto Ex</th>
+                        <th>Lucro Un</th>
+                        <th>Lucro Total</th>
+                        <th width="50">Ação</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoCarrinho"></tbody>
+            </table>
+        </div>
+
+        <button class="btn btn-finalizar" id="btnFinalizar" onclick="gravarLoteFinal()">Gravar Lançamentos</button>
+    </div>
+</div>
+
+<div id="modalCad" class="modal">
+    <div class="modal-content" style="max-width: 450px;">
+        <span class="close" onclick="fecharModal('modalCad')">&times;</span>
+        <h2 id="tituloCad">Cadastro</h2>
+        <div id="formCad"></div>
+        <div id="listaCad" style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;"></div>
+    </div>
+</div>
+
+<script>
+    // Configurações
+    const PLANILHA_ID = '1cl89xjWPjxyULh4Jw5XZc89uO057pDPaivUKSCiy-xM';
+    const URL_DADOS = `https://docs.google.com/spreadsheets/d/${PLANILHA_ID}/gviz/tq?tq=SELECT A, B, E`;
+    
+    let db_produtos = [];
+    let db_fornecedores = JSON.parse(localStorage.getItem('fornecedores')) || [];
+    let db_compradores = JSON.parse(localStorage.getItem('compradores')) || [];
+    let db_lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+    let carrinho_temp = [];
+
+    window.onload = async () => {
+        try {
+            const res = await fetch(URL_DADOS);
+            const text = await res.text();
+            const json = JSON.parse(text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/)[1]);
+            db_produtos = json.table.rows.map(r => ({
+                cod: r.c[0] ? r.c[0].v.toString() : '',
+                nome: r.c[1] ? r.c[1].v : '',
+                preco: r.c[2] ? parseFloat(r.c[2].v) : 0
+            }));
+        } catch(e) { console.error("Erro na Planilha", e); }
+        
+        const hoje = new Date().toISOString().split('T')[0];
+        document.getElementById('filtroDataIn').value = hoje;
+        document.getElementById('filtroDataFim').value = hoje;
+        atualizarSelects();
+        renderizarTabela();
+    };
+
+    // Navegação Enter
+    document.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter') {
+            const inputs = Array.from(document.querySelectorAll('.nav'));
+            const idx = inputs.indexOf(document.activeElement);
+            if(idx > -1) {
+                e.preventDefault();
+                e.stopPropagation();
+                if(document.activeElement.id === 'prodGasto') {
+                    processarBotaoItem();
+                } else if(inputs[idx+1]) {
+                    inputs[idx+1].focus();
+                }
+            }
+        }
+    });
+
+    // --- FUNÇÕES DE BUSCA ---
+    function buscarFornecedor() {
+        const val = document.getElementById('loteForn').value;
+        if(!val) { 
+            document.getElementById('labelForn').innerText = ""; 
+            return; 
+        }
+        // Como agora é uma lista, o valor selecionado já é o próprio nome do fornecedor
+        document.getElementById('labelForn').innerText = val;
+    }
+
+    function buscarProduto() {
+        const t = document.getElementById('prodBusca').value.toLowerCase().trim();
+        if(!t) { document.getElementById('labelProd').innerText = ""; return; }
+        const p = db_produtos.find(i => i.cod.toLowerCase() === t || i.nome.toLowerCase().includes(t));
+        if(p) {
+            document.getElementById('prodBusca').value = p.cod;
+            document.getElementById('labelProd').innerText = p.nome;
+            document.getElementById('prodVenda').value = p.preco;
+        } else {
+            document.getElementById('labelProd').innerText = "Não encontrado";
+        }
+    }
+
+    // --- LÓGICA DO MODAL ---
+    function abrirModalLote() {
+        document.getElementById('modalLote').style.display = 'block';
+        document.getElementById('modalTitulo').innerText = "Novo Lote";
+        document.getElementById('editIndex').value = "";
+        document.getElementById('areaCarrinho').style.display = 'block';
+        document.getElementById('btnFinalizar').style.display = 'block';
+        document.getElementById('btnAddItem').innerText = "+ Adicionar";
+        carrinho_temp = []; renderizarCarrinho(); limparCamposProd();
+        document.getElementById('loteData').value = new Date().toISOString().split('T')[0];
+        setTimeout(() => document.getElementById('loteComp').focus(), 100);
+    }
+
+    function processarBotaoItem() {
+        const idxEdit = document.getElementById('editIndex').value;
+        const cod = document.getElementById('prodBusca').value.trim();
+        const nome = document.getElementById('labelProd').innerText;
+        const qtd = parseFloat(document.getElementById('prodQtd').value);
+        const custo = parseFloat(document.getElementById('prodCusto').value) || 0;
+        const venda = parseFloat(document.getElementById('prodVenda').value) || 0;
+        const gasto = parseFloat(document.getElementById('prodGasto').value) || 0;
+
+        if(!cod || !qtd || nome === "Não encontrado" || nome === "") {
+            alert("Erro: Certifique-se de preencher um Produto válido e uma Quantidade.");
+            return;
+        }
+
+        const lUn = venda - (custo + gasto);
+        const lTot = lUn * qtd;
+        const item = { cod, nome, qtd, custo, venda, gasto, lucroUn: lUn, lucroTot: lTot };
+
+        if(idxEdit !== "") {
+            const dt = document.getElementById('loteData').value;
+            db_lancamentos[idxEdit] = { ...item, dataRAW: dt, dataBR: dt.split('-').reverse().join('/'), comprador: document.getElementById('loteComp').value, fornecedor: document.getElementById('labelForn').innerText };
+            localStorage.setItem('lancamentos', JSON.stringify(db_lancamentos));
+            renderizarTabela(); fecharModal('modalLote');
+        } else {
+            carrinho_temp.push(item); 
+            renderizarCarrinho(); 
+            limparCamposProd(); 
+            setTimeout(() => document.getElementById('prodBusca').focus(), 50);
+        }
+    }
+
+    function renderizarCarrinho() {
+        document.getElementById('corpoCarrinho').innerHTML = carrinho_temp.map((it, idx) => `
+            <tr><td>${it.nome}</td><td>${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td>R$ ${it.gasto.toFixed(2)}</td><td style="color:#1a73e8; font-weight:bold">R$ ${it.lucroUn.toFixed(2)}</td><td style="font-weight:bold">R$ ${it.lucroTot.toFixed(2)}</td><td><button type="button" class="btn-excluir" style="border:none; border-radius:4px; padding:3px 7px; color:white; cursor:pointer" onclick="carrinho_temp.splice(${idx},1); renderizarCarrinho()">✕</button></td></tr>`).join('');
+    }
+
+    function gravarLoteFinal() {
+        const dt = document.getElementById('loteData').value;
+        const comp = document.getElementById('loteComp').value;
+        const forn = document.getElementById('labelForn').innerText;
+        if(!dt || !comp || carrinho_temp.length === 0) return alert("Erro no cabeçalho ou itens vazios!");
+        carrinho_temp.forEach(it => db_lancamentos.unshift({ ...it, dataRAW: dt, dataBR: dt.split('-').reverse().join('/'), comprador: comp, fornecedor: forn }));
+        localStorage.setItem('lancamentos', JSON.stringify(db_lancamentos));
+        renderizarTabela(); fecharModal('modalLote');
+    }
+
+    // Tabela Principal
+    function renderizarTabela() {
+        const tbody = document.getElementById('corpoTabela');
+        tbody.innerHTML = "";
+        const fi = document.getElementById('filtroDataIn').value;
+        const ff = document.getElementById('filtroDataFim').value;
+        const sc = document.getElementById('filtroComp').value;
+        const sf = document.getElementById('filtroForn').value;
+
+        db_lancamentos.forEach((it, idx) => {
+            if(it.dataRAW >= fi && it.dataRAW <= ff && (!sc || it.comprador === sc) && (!sf || it.fornecedor === sf)) {
+                tbody.innerHTML += `<tr><td><input type="checkbox" class="chk-item" value="${idx}"></td><td>${it.dataBR}</td><td style="color:#ff6b6b; font-weight:bold">${it.comprador}</td><td>${it.fornecedor || '---'}</td><td>${it.nome}</td><td>${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td style="color:#1a73e8; font-weight:bold">R$ ${it.lucroUn.toFixed(2)}</td><td style="color:${it.lucroTot>=0?'green':'red'}; font-weight:bold">R$ ${it.lucroTot.toFixed(2)}</td><td><button class="btn-acao btn-editar" onclick="alterarLancamento(${idx})">✎</button><button class="btn-acao btn-cupom" onclick="imprimirCupom(${idx})">🎫</button><button class="btn-acao btn-excluir" onclick="excluirItem(${idx})">✖</button></td></tr>`;
+            }
+        });
+    }
+
+    function alterarLancamento(idx) {
+        const it = db_lancamentos[idx];
+        abrirModalLote();
+        document.getElementById('modalTitulo').innerText = "Alterar Item";
+        document.getElementById('editIndex').value = idx;
+        document.getElementById('areaCarrinho').style.display = 'none';
+        document.getElementById('btnFinalizar').style.display = 'none';
+        document.getElementById('btnAddItem').innerText = "Atualizar";
+        document.getElementById('loteData').value = it.dataRAW;
+        document.getElementById('loteComp').value = it.comprador;
+        document.getElementById('loteForn').value = it.fornecedor; // Atualiza a seleção do select
+        document.getElementById('labelForn').innerText = it.fornecedor;
+        document.getElementById('prodBusca').value = it.cod;
+        document.getElementById('labelProd').innerText = it.nome;
+        document.getElementById('prodQtd').value = it.qtd;
+        document.getElementById('prodCusto').value = it.custo;
+        document.getElementById('prodVenda').value = it.venda;
+        document.getElementById('prodGasto').value = it.gasto;
+    }
+
+    // Relatórios
+    function imprimirCupom(idx) {
+        const it = db_lancamentos[idx];
+        const win = window.open('', '', 'width=350,height=600');
+        
+        win.document.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; }
+                    body { 
+                        width: 75mm; font-family: 'Arial', sans-serif; 
+                        padding: 5mm; margin: 0; font-size: 14px; color: #000; font-weight: 700;
+                    }
+                    .centro { text-align: center; }
+                    .negrito { font-weight: 900; }
+                    .separador { border-top: 2px solid #000; margin: 8px 0; }
+                    .linha { display: flex; justify-content: space-between; margin: 3px 0; }
+                    .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                <div class="centro negrito titulo">SISTEMA COLMÉIA</div>
+                <div class="centro negrito">*** LANÇAMENTO ***</div>
+                <div class="separador"></div>
+                
+                <div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div>
+                <div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div>
+                <div class="linha"><span>FORN:</span> <span>${it.fornecedor || '---'}</span></div>
+                
+                <div class="separador"></div>
+                <div class="negrito centro">${it.nome}</div>
+                <div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div>
+                <div class="linha"><span>CUSTO UN:</span> <span>R$ ${it.custo.toFixed(2)}</span></div>
+                <div class="linha"><span>VENDA UN:</span> <span>R$ ${it.venda.toFixed(2)}</span></div>
+                
+                <div class="separador"></div>
+                <div class="linha negrito"><span>LUCRO UN:</span> <span>R$ ${it.lucroUn.toFixed(2)}</span></div>
+                <div class="linha negrito"><span>LUCRO TOTAL:</span> <span>R$ ${it.lucroTot.toFixed(2)}</span></div>
+                <div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;">
+                    <span>VALOR TOTAL:</span> <span>R$ ${(it.venda * it.qtd).toFixed(2)}</span>
+                </div>
+                
+                <div class="separador"></div>
+                <div class="centro" style="margin-top: 15px;">
+                    ${new Date().toLocaleString('pt-BR')}<br>
+                    *** FIM DO CUPOM ***
+                </div>
+            </body>
+            </html>
+        `);
+        win.document.close();
+    }
+
+    function imprimirLista() {
+        const marcados = document.querySelectorAll('.chk-item:checked');
+        if (marcados.length === 0) return alert("Selecione itens!");
+        let totalL = 0, totalC = 0, linhas = "";
+        marcados.forEach(c => {
+            const it = db_lancamentos[c.value];
+            totalL += it.lucroTot;
+            totalC += (it.custo + it.gasto) * it.qtd;
+            linhas += `<tr><td>${it.dataBR}</td><td>${it.comprador}</td><td>${it.fornecedor}</td><td>${it.nome}</td><td align="center">${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td>R$ ${it.gasto.toFixed(2)}</td><td><b>R$ ${it.lucroUn.toFixed(2)}</b></td><td><b>R$ ${it.lucroTot.toFixed(2)}</b></td></tr>`;
+        });
+
+        const win = window.open('', '', 'width=1100');
+        win.document.write(`<html><head><style>@page { size: landscape; } body { font-family: sans-serif; font-size: 12px; } table { width:100%; border-collapse:collapse; } th, td { border:1px solid #ccc; padding:8px; } th { background:#eee; }</style></head><body><h2>Relatório Colméia</h2><table><thead><tr><th>Data</th><th>Comprador</th><th>Fornecedor</th><th>Produto</th><th>Qtd</th><th>Custo Un</th><th>Venda Un</th><th>Gasto Ex</th><th>Lucro Un</th><th>Lucro Total</th></tr></thead><tbody>${linhas}</tbody></table><div style="margin-top:20px; text-align:right">CUSTO TOTAL: <b>R$ ${totalC.toFixed(2)}</b> | LUCRO TOTAL: <b style="font-size:18px; color:#1a73e8">R$ ${totalL.toFixed(2)}</b></div></body></html>`);
+        win.document.close(); win.print();
+    }
+
+    // Cadastro e Gerais
+    function abrirCadastro(tipo) { document.getElementById('modalCad').style.display = 'block'; document.getElementById('tituloCad').innerText = "Gestão de " + tipo; const extra = tipo === 'fornecedores' ? `<input type="text" id="cadID" placeholder="Código" style="width:100%; margin-bottom:10px">` : ""; document.getElementById('formCad').innerHTML = `${extra}<input type="text" id="cadNome" placeholder="Nome" style="width:100%"><button class="btn btn-novo" style="width:100%; margin-top:10px" onclick="salvarCadastro('${tipo}')">Gravar</button>`; listarCadastro(tipo); }
+    function salvarCadastro(tipo) { const nome = document.getElementById('cadNome').value; if(!nome) return; const id = document.getElementById('cadID') ? document.getElementById('cadID').value : Date.now().toString(); const lista = tipo === 'compradores' ? db_compradores : db_fornecedores; lista.push({id, nome}); localStorage.setItem(tipo, JSON.stringify(lista)); atualizarSelects(); listarCadastro(tipo); }
+    function listarCadastro(tipo) { const lista = tipo === 'compradores' ? db_compradores : db_fornecedores; document.getElementById('listaCad').innerHTML = lista.map((i, idx) => `<div style="display:flex; justify-content:space-between; margin-bottom:5px"><span>${i.nome}</span><button onclick="removerCad('${tipo}',${idx})" style="color:red; border:none; background:none; cursor:pointer">X</button></div>`).join(''); }
+    function removerCad(t, i) { const l = t === 'compradores' ? db_compradores : db_fornecedores; l.splice(i,1); localStorage.setItem(t, JSON.stringify(l)); atualizarSelects(); listarCadastro(t); }
+    function fecharModal(id) { document.getElementById(id).style.display = 'none'; }
+    function excluirItem(idx) { if(confirm("Excluir?")) { db_lancamentos.splice(idx,1); localStorage.setItem('lancamentos', JSON.stringify(db_lancamentos)); renderizarTabela(); } }
+    
+    function limparCamposProd() { 
+        document.getElementById('prodBusca').value = ""; 
+        document.getElementById('labelProd').innerText = ""; 
+        document.getElementById('prodQtd').value = ""; 
+        document.getElementById('prodCusto').value = ""; 
+        document.getElementById('prodVenda').value = ""; 
+        document.getElementById('prodGasto').value = "0"; 
+    }
+    
+    function selecionarTodos() { const m = document.getElementById('chkTodos').checked; document.querySelectorAll('.chk-item').forEach(c => c.checked = m); }
+    
+    // ATUALIZADA PARA INJETAR OS FORNECEDORES NO NOVO SELECT DO MODAL
+    function atualizarSelects() {
+        const c = db_compradores.map(i => `<option value="${i.nome}">${i.nome}</option>`).join('');
+        const f = db_fornecedores.map(i => `<option value="${i.nome}">${i.nome}</option>`).join('');
+        
+        document.getElementById('loteComp').innerHTML = '<option value="">Selecione</option>' + c;
+        document.getElementById('loteForn').innerHTML = '<option value="">Selecione</option>' + f; // Injeta os fornecedores no modal de lançamento
+        
+        document.getElementById('filtroComp').innerHTML = '<option value="">Comprador: Todos</option>' + c;
+        document.getElementById('filtroForn').innerHTML = '<option value="">Fornecedor: Todos</option>' + f;
+    }
+</script>
+</body>
+</html>
