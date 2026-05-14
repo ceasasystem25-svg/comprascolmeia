@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Colméia - Painel de Lucros e Margens</title>
+    <title>Sistema Colméia - Painel de Lucros Cloud</title>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: #f4f7f6; margin: 0; padding: 0; color: #333; }
@@ -27,7 +27,7 @@
         .card h3 { margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
         .card p { margin: 0; font-size: 24px; font-weight: bold; }
 
-        /* Blocos de Destaque Maior/Menor Lucro */
+        /* Blocos de Destaque */
         .destaques-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 25px; }
         .destaque-box { padding: 15px; border-radius: 8px; border: 1px solid #ddd; background: #fff; display: flex; flex-direction: column; justify-content: center; }
         .destaque-box.maior { border-left: 6px solid #2ecc71; }
@@ -43,12 +43,15 @@
         tr:hover { background-color: #fafafa; }
         .badge-porcentagem { background: #e8f0fe; color: #1a73e8; padding: 4px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
     </style>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
 
 <header>
     <img src="https://i.postimg.cc/cCj4sBRm/branco.png" alt="Logo" style="height: 40px;">
-    <h1 style="margin:0; font-size: 20px;">Painel de Desempenho e Lucratividade</h1>
+    <h1 style="margin:0; font-size: 20px;">Painel de Desempenho e Lucratividade Cloud</h1>
 </header>
 
 <main>
@@ -82,12 +85,12 @@
     <div class="destaques-grid">
         <div class="destaque-box maior">
             <h4>🏆 Produto com Maior Lucro Acumulado</h4>
-            <div id="maiorLucroNome" class="prod-nome">Nenhum dado no período</div>
+            <div id="maiorLucroNome" class="prod-nome">Carregando dados da Nuvem...</div>
             <div id="maiorLucroValores" class="prod-valores"></div>
         </div>
         <div class="destaque-box menor">
             <h4>⚠️ Produto com Menor Lucro Acumulado</h4>
-            <div id="menorLucroNome" class="prod-nome">Nenhum dado no período</div>
+            <div id="menorLucroNome" class="prod-nome">Carregando dados da Nuvem...</div>
             <div id="menorLucroValores" class="prod-valores"></div>
         </div>
     </div>
@@ -109,112 +112,33 @@
 </main>
 
 <script>
-    let db_lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+    // Suas credenciais vinculadas e prontas no dashboard também
+    const firebaseConfig = {
+        apiKey: "AIzaSyCA9UxwD5s3ftd8pgIIc5sMnNFdnJf7OrY",
+        authDomain: "sistema-colmeia-39499.firebaseapp.com",
+        databaseURL: "https://sistema-colmeia-39499-default-rtdb.firebaseio.com",
+        projectId: "sistema-colmeia-39499",
+        storageBucket: "sistema-colmeia-39499.firebasestorage.app",
+        messagingSenderId: "686485031779",
+        appId: "1:686485031779:web:f9907de1466759cdb2e156"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let db_lancamentos = [];
 
     window.onload = () => {
-        // Define o filtro inicial para o dia de hoje
         const hoje = new Date().toISOString().split('T')[0];
         document.getElementById('dashDataIn').value = hoje;
         document.getElementById('dashDataFim').value = hoje;
-        processarDashboard();
-    };
-
-    function processarDashboard() {
-        const dataIn = document.getElementById('dashDataIn').value;
-        const dataFim = document.getElementById('dashDataFim').value;
-        const tbody = document.getElementById('corpoDashboard');
-        tbody.innerHTML = "";
-
-        if (!dataIn || !dataFim) return;
-
-        let financeiro = { custo: 0, faturamento: 0, lucro: 0 };
-        let produtosAgrupados = {};
-
-        // 1. Filtrar lançamentos e agrupar por produto
-        db_lancamentos.forEach(it => {
-            if (it.dataRAW >= dataIn && it.dataRAW <= dataFim) {
-                // Cálculo de custos do item considerando o gasto extra unitário
-                const custoTotalItem = (it.custo + (it.gasto || 0)) * it.qtd;
-                const vendaTotalItem = it.venda * it.qtd;
-                const lucroTotalItem = it.lucroTot;
-
-                // Somatórios globais do topo
-                financeiro.custo += custoTotalItem;
-                financeiro.faturamento += vendaTotalItem;
-                financeiro.lucro += lucroTotalItem;
-
-                // Agrupamento por produto para a tabela
-                if (!produtosAgrupados[it.nome]) {
-                    produtosAgrupados[it.nome] = {
-                        cod: it.cod,
-                        nome: it.nome,
-                        qtdTotal: 0,
-                        custoAcumulado: 0,
-                        vendaAcumulado: 0,
-                        lucroAcumulado: 0
-                    };
-                }
-
-                produtosAgrupados[it.nome].qtdTotal += it.qtd;
-                produtosAgrupados[it.nome].custoAcumulado += custoTotalItem;
-                produtosAgrupados[it.nome].vendaAcumulado += vendaTotalItem;
-                produtosAgrupados[it.nome].lucroAcumulado += lucroTotalItem;
-            }
-        });
-
-        // Atualizar os Cards do topo
-        document.getElementById('txtTotalCusto').innerText = `R$ ${financeiro.custo.toFixed(2)}`;
-        document.getElementById('txtTotalVenda').innerText = `R$ ${financeiro.faturamento.toFixed(2)}`;
-        document.getElementById('txtTotalLucro').innerText = `R$ ${financeiro.lucro.toFixed(2)}`;
-
-        // Transformar objeto agrupado em array para ordenar e renderizar
-        let listaProdutos = Object.values(produtosAgrupados);
-
-        if (listaProdutos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:20px;">Nenhum lançamento encontrado neste período.</td></tr>`;
-            document.getElementById('maiorLucroNome').innerText = "Nenhum dado no período";
-            document.getElementById('maiorLucroValores').innerText = "";
-            document.getElementById('menorLucroNome').innerText = "Nenhum dado no período";
-            document.getElementById('menorLucroValores').innerText = "";
-            return;
-        }
-
-        // 2. Identificar Maior e Menor Lucro do período
-        listaProdutos.sort((a, b) => b.lucroAcumulado - a.lucroAcumulado);
         
-        let maisLucrativo = listaProdutos[0];
-        let menosLucrativo = listaProdutos[listaProdutos.length - 1];
-
-        if (maisLucrativo) {
-            document.getElementById('maiorLucroNome').innerText = `${maisLucrativo.nome}`;
-            document.getElementById('maiorLucroValores').innerText = `Lucro total de R$ ${maisLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${maisLucrativo.qtdTotal} unidades.`;
-        }
-        if (menosLucrativo) {
-            document.getElementById('menorLucroNome').innerText = `${menosLucrativo.nome}`;
-            document.getElementById('menorLucroValores').innerText = `Lucro total de R$ ${menosLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${menosLucrativo.qtdTotal} unidades.`;
-        }
-
-        // 3. Gerar as linhas da tabela com o cálculo de porcentagem (%)
-        listaProdutos.forEach(p => {
-            // Fórmula da Margem de Lucro Comercial sobre o faturamento daquele produto:
-            // (Lucro / Venda Total) * 100
-            let porcentagemLucro = 0;
-            if (p.vendaAcumulado > 0) {
-                porcentagemLucro = (p.lucroAcumulado / p.vendaAcumulado) * 100;
-            }
-
-            tbody.innerHTML += `
-                <tr>
-                    <td><b>${p.cod}</b> - ${p.nome}</td>
-                    <td align="center"><b>${p.qtdTotal}</b></td>
-                    <td>R$ ${p.custoAcumulado.toFixed(2)}</td>
-                    <td>R$ ${p.vendaAcumulado.toFixed(2)}</td>
-                    <td style="font-weight:bold; color:${p.lucroAcumulado >= 0 ? 'green' : 'red'}">R$ ${p.lucroAcumulado.toFixed(2)}</td>
-                    <td><span class="badge-porcentagem">${porcentagemLucro.toFixed(1)}%</span></td>
-                </tr>
-            `;
+        // Puxa do Firebase de forma reativa
+        database.ref('lancamentos').on('value', snapshot => {
+            db_lancamentos = [];
+            snapshot.forEach(child => {
+                db_lancamentos.push(child.val());
+            });
+            processarDashboard();
         });
-    }
-</script>
-</body>
-</html>
+    };
