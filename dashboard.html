@@ -44,6 +44,7 @@
         .badge-porcentagem { background: #e8f0fe; color: #1a73e8; padding: 4px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
     </style>
 
+    <!-- Importação do Firebase para o Dashboard -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
@@ -70,15 +71,15 @@
     <div class="cards-grid">
         <div class="card card-custo">
             <h3>Custo Total do Período</h3>
-            <p id="txtTotalCusto">R$ 0.00</p>
+            <p id="txtTotalCusto">R$ 0,00</p>
         </div>
         <div class="card card-faturamento">
             <h3>Faturamento Bruto</h3>
-            <p id="txtTotalVenda">R$ 0.00</p>
+            <p id="txtTotalVenda">R$ 0,00</p>
         </div>
         <div class="card card-lucro">
             <h3>Lucro Líquido Real</h3>
-            <p id="txtTotalLucro">R$ 0.00</p>
+            <p id="txtTotalLucro">R$ 0,00</p>
         </div>
     </div>
 
@@ -112,7 +113,10 @@
 </main>
 
 <script>
-    // Suas credenciais vinculadas e prontas no dashboard também
+    // Formatador BRL (Ponto por Vírgula / R$)
+    const fBRL = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    // Credenciais Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCA9UxwD5s3ftd8pgIIc5sMnNFdnJf7OrY",
         authDomain: "sistema-colmeia-39499.firebaseapp.com",
@@ -133,12 +137,13 @@
         document.getElementById('dashDataIn').value = hoje;
         document.getElementById('dashDataFim').value = hoje;
         
-        // Puxa do Firebase de forma reativa
         database.ref('lancamentos').on('value', snapshot => {
             db_lancamentos = [];
-            snapshot.forEach(child => {
-                db_lancamentos.push(child.val());
-            });
+            if(snapshot.exists()) {
+                snapshot.forEach(child => {
+                    db_lancamentos.push(child.val());
+                });
+            }
             processarDashboard();
         });
     };
@@ -182,9 +187,10 @@
             }
         });
 
-        document.getElementById('txtTotalCusto').innerText = `R$ ${financeiro.custo.toFixed(2)}`;
-        document.getElementById('txtTotalVenda').innerText = `R$ ${financeiro.faturamento.toFixed(2)}`;
-        document.getElementById('txtTotalLucro').innerText = `R$ ${financeiro.lucro.toFixed(2)}`;
+        // Atualizando os Cards de topo com a formatação em Real
+        document.getElementById('txtTotalCusto').innerText = fBRL(financeiro.custo);
+        document.getElementById('txtTotalVenda').innerText = fBRL(financeiro.faturamento);
+        document.getElementById('txtTotalLucro').innerText = fBRL(financeiro.lucro);
 
         let listaProdutos = Object.values(produtosAgrupados);
 
@@ -204,11 +210,11 @@
 
         if (maisLucrativo) {
             document.getElementById('maiorLucroNome').innerText = `${maisLucrativo.nome}`;
-            document.getElementById('maiorLucroValores').innerText = `Lucro total de R$ ${maisLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${maisLucrativo.qtdTotal} unidades.`;
+            document.getElementById('maiorLucroValores').innerText = `Lucro total de ${fBRL(maisLucrativo.lucroAcumulado)} acumulado em ${maisLucrativo.qtdTotal} unidades.`;
         }
         if (menosLucrativo) {
             document.getElementById('menorLucroNome').innerText = `${menosLucrativo.nome}`;
-            document.getElementById('menorLucroValores').innerText = `Lucro total de R$ ${menosLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${menosLucrativo.qtdTotal} unidades.`;
+            document.getElementById('menorLucroValores').innerText = `Lucro total de ${fBRL(menosLucrativo.lucroAcumulado)} acumulado em ${menosLucrativo.qtdTotal} unidades.`;
         }
 
         listaProdutos.forEach(p => {
@@ -221,9 +227,9 @@
                 <tr>
                     <td><b>${p.cod}</b> - ${p.nome}</td>
                     <td align="center"><b>${p.qtdTotal}</b></td>
-                    <td>R$ ${p.custoAcumulado.toFixed(2)}</td>
-                    <td>R$ ${p.vendaAcumulado.toFixed(2)}</td>
-                    <td style="font-weight:bold; color:${p.lucroAcumulado >= 0 ? 'green' : 'red'}">R$ ${p.lucroAcumulado.toFixed(2)}</td>
+                    <td>${fBRL(p.custoAcumulado)}</td>
+                    <td>${fBRL(p.vendaAcumulado)}</td>
+                    <td style="font-weight:bold; color:${p.lucroAcumulado >= 0 ? 'green' : 'red'}">${fBRL(p.lucroAcumulado)}</td>
                     <td><span class="badge-porcentagem">${porcentagemLucro.toFixed(1)}%</span></td>
                 </tr>
             `;
