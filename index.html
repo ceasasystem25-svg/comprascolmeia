@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Colméia v9.1 - Cloud Corrigido</title>
+    <title>Sistema Colméia v9.2 - Cloud & BRL Formato</title>
     <style>
         * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
         body { background-color: #f4f7f6; margin: 0; padding: 0; }
@@ -55,6 +55,7 @@
         .carrinho-container thead { background: #f8f9fa; border-bottom: 2px solid #ddd; }
     </style>
 
+    <!-- Importação do Firebase -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
@@ -62,7 +63,7 @@
 
 <header>
     <img src="https://i.postimg.cc/cCj4sBRm/branco.png" alt="Logo" style="height: 40px;">
-    <h1 style="margin:0; font-size: 20px;">Sistema Colméia-COMPRAS</h1>
+    <h1 style="margin:0; font-size: 20px;">Sistema Colméia - Pro v9.2 Cloud</h1>
 </header>
 
 <main>
@@ -76,10 +77,10 @@
         </div>
         <div class="acoes">
             <a href="dashboard.html" class="btn btn-dashboard">📊 Dashboard</a>
-            <button class="btn btn-imprimir" onclick="imprimirLista()">🖨️ Relatorio</button>
+            <button class="btn btn-imprimir" onclick="imprimirLista()">🖨️ Lista</button>
             <button class="btn btn-comprador" onclick="abrirCadastro('compradores')">👤 Compradores</button>
             <button class="btn btn-fornecedor" onclick="abrirCadastro('fornecedores')">👥 Fornecedores</button>
-            <button class="btn btn-novo" onclick="abrirModalLote()">+ Nova Compra</button>
+            <button class="btn btn-novo" onclick="abrirModalLote()">+ Iniciar Novo Lote</button>
         </div>
     </div>
 
@@ -106,7 +107,7 @@
 <div id="modalLote" class="modal">
     <div class="modal-content">
         <span class="close" onclick="fecharModal('modalLote')">&times;</span>
-        <h2 id="modalTitulo" style="color: #1a73e8; margin-top:0;">Nova Compra</h2>
+        <h2 id="modalTitulo" style="color: #1a73e8; margin-top:0;">Novo Lote</h2>
         <input type="hidden" id="editIndex" value="">
 
         <div class="form-grid">
@@ -184,7 +185,10 @@
 </div>
 
 <script>
-    // Suas credenciais oficiais configuradas de fábrica
+    // Formatador BRL (Ponto por Vírgula / R$)
+    const fBRL = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    // Credenciais Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyCA9UxwD5s3ftd8pgIIc5sMnNFdnJf7OrY",
         authDomain: "sistema-colmeia-39499.firebaseapp.com",
@@ -218,7 +222,7 @@
                 nome: r.c[1] ? r.c[1].v : '',
                 preco: r.c[2] ? parseFloat(r.c[2].v) : 0
             }));
-        } catch(e) { console.error("Erro na Planilha Google:", e); }
+        } catch(e) { console.error("Erro na Planilha", e); }
         
         const hoje = new Date().toISOString().split('T')[0];
         document.getElementById('filtroDataIn').value = hoje;
@@ -227,7 +231,6 @@
         ouvirNuvem();
     };
 
-    // CORREÇÃO CRÍTICA: Proteções contra retorno nulo (banco vazio)
     function ouvirNuvem() {
         database.ref('compradores').on('value', snapshot => {
             db_compradores = [];
@@ -293,7 +296,6 @@
         }
     }
 
-    // FUNÇÕES DE CLIQUE DOS MODAIS (Destravadas)
     function abrirModalLote() {
         document.getElementById('modalLote').style.display = 'block';
         document.getElementById('modalTitulo').innerText = "Novo Lote";
@@ -344,7 +346,16 @@
 
     function renderizarCarrinho() {
         document.getElementById('corpoCarrinho').innerHTML = carrinho_temp.map((it, idx) => `
-            <tr><td>${it.nome}</td><td>${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td>R$ ${it.gasto.toFixed(2)}</td><td style="color:#1a73e8; font-weight:bold">R$ ${it.lucroUn.toFixed(2)}</td><td style="font-weight:bold">R$ ${it.lucroTot.toFixed(2)}</td><td><button type="button" class="btn-excluir" style="border:none; border-radius:4px; padding:3px 7px; color:white; cursor:pointer" onclick="carrinho_temp.splice(${idx},1); renderizarCarrinho()">✕</button></td></tr>`).join('');
+            <tr>
+                <td>${it.nome}</td>
+                <td>${it.qtd}</td>
+                <td>${fBRL(it.custo)}</td>
+                <td>${fBRL(it.venda)}</td>
+                <td>${fBRL(it.gasto)}</td>
+                <td style="color:#1a73e8; font-weight:bold">${fBRL(it.lucroUn)}</td>
+                <td style="font-weight:bold">${fBRL(it.lucroTot)}</td>
+                <td><button type="button" class="btn-excluir" style="border:none; border-radius:4px; padding:3px 7px; color:white; cursor:pointer" onclick="carrinho_temp.splice(${idx},1); renderizarCarrinho()">✕</button></td>
+            </tr>`).join('');
     }
 
     function gravarLoteFinal() {
@@ -369,7 +380,23 @@
 
         db_lancamentos.forEach((it, idx) => {
             if(it.dataRAW >= fi && it.dataRAW <= ff && (!sc || it.comprador === sc) && (!sf || it.fornecedor === sf)) {
-                tbody.innerHTML += `<tr><td><input type="checkbox" class="chk-item" value="${idx}"></td><td>${it.dataBR}</td><td style="color:#ff6b6b; font-weight:bold">${it.comprador}</td><td>${it.fornecedor || '---'}</td><td>${it.nome}</td><td>${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td style="color:#1a73e8; font-weight:bold">R$ ${it.lucroUn.toFixed(2)}</td><td style="color:${it.lucroTot>=0?'green':'red'}; font-weight:bold">R$ ${it.lucroTot.toFixed(2)}</td><td><button class="btn-acao btn-editar" onclick="alterarLancamento(${idx})">✎</button><button class="btn-acao btn-cupom" onclick="imprimirCupom(${idx})">🎫</button><button class="btn-acao btn-excluir" onclick="excluirItem(${idx})">✖</button></td></tr>`;
+                tbody.innerHTML += `<tr>
+                    <td><input type="checkbox" class="chk-item" value="${idx}"></td>
+                    <td>${it.dataBR}</td>
+                    <td style="color:#ff6b6b; font-weight:bold">${it.comprador}</td>
+                    <td>${it.fornecedor || '---'}</td>
+                    <td>${it.nome}</td>
+                    <td>${it.qtd}</td>
+                    <td>${fBRL(it.custo)}</td>
+                    <td>${fBRL(it.venda)}</td>
+                    <td style="color:#1a73e8; font-weight:bold">${fBRL(it.lucroUn)}</td>
+                    <td style="color:${it.lucroTot>=0?'green':'red'}; font-weight:bold">${fBRL(it.lucroTot)}</td>
+                    <td>
+                        <button class="btn-acao btn-editar" onclick="alterarLancamento(${idx})">✎</button>
+                        <button class="btn-acao btn-cupom" onclick="imprimirCupom(${idx})">🎫</button>
+                        <button class="btn-acao btn-excluir" onclick="excluirItem(${idx})">✖</button>
+                    </td>
+                </tr>`;
             }
         });
     }
@@ -397,7 +424,7 @@
     function imprimirCupom(idx) {
         const it = db_lancamentos[idx];
         const win = window.open('', '', 'width=350,height=600');
-        win.document.write(`<html><head><style>@page { margin: 0; } body { width: 75mm; font-family: 'Arial', sans-serif; padding: 5mm; margin: 0; font-size: 14px; color: #000; font-weight: 700; } .centro { text-align: center; } .negrito { font-weight: 900; } .separador { border-top: 2px solid #000; margin: 8px 0; } .linha { display: flex; justify-content: space-between; margin: 3px 0; } .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body onload="window.print(); window.close();"><div class="centro negrito titulo">SISTEMA COLMÉIA</div><div class="centro negrito">*** LANÇAMENTO ***</div><div class="separador"></div><div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div><div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div><div class="linha"><span>FORN:</span> <span>${it.fornecedor || '---'}</span></div><div class="separador"></div><div class="negrito centro">${it.nome}</div><div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div><div class="linha"><span>CUSTO UN:</span> <span>R$ ${it.custo.toFixed(2)}</span></div><div class="linha"><span>VENDA UN:</span> <span>R$ ${it.venda.toFixed(2)}</span></div><div class="separador"></div><div class="linha negrito"><span>LUCRO UN:</span> <span>R$ ${it.lucroUn.toFixed(2)}</span></div><div class="linha negrito"><span>LUCRO TOTAL:</span> <span>R$ ${it.lucroTot.toFixed(2)}</span></div><div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;"><span>VALOR TOTAL:</span> <span>R$ ${(it.venda * it.qtd).toFixed(2)}</span></div><div class="separador"></div><div class="centro" style="margin-top: 15px;">${new Date().toLocaleString('pt-BR')}<br>*** FIM DO CUPOM ***</div></body></html>`);
+        win.document.write(`<html><head><style>@page { margin: 0; } body { width: 75mm; font-family: 'Arial', sans-serif; padding: 5mm; margin: 0; font-size: 14px; color: #000; font-weight: 700; } .centro { text-align: center; } .negrito { font-weight: 900; } .separador { border-top: 2px solid #000; margin: 8px 0; } .linha { display: flex; justify-content: space-between; margin: 3px 0; } .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body onload="window.print(); window.close();"><div class="centro negrito titulo">SISTEMA COLMÉIA</div><div class="centro negrito">*** LANÇAMENTO ***</div><div class="separador"></div><div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div><div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div><div class="linha"><span>FORN:</span> <span>${it.fornecedor || '---'}</span></div><div class="separador"></div><div class="negrito centro">${it.nome}</div><div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div><div class="linha"><span>CUSTO UN:</span> <span>${fBRL(it.custo)}</span></div><div class="linha"><span>VENDA UN:</span> <span>${fBRL(it.venda)}</span></div><div class="separador"></div><div class="linha negrito"><span>LUCRO UN:</span> <span>${fBRL(it.lucroUn)}</span></div><div class="linha negrito"><span>LUCRO TOTAL:</span> <span>${fBRL(it.lucroTot)}</span></div><div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;"><span>VALOR TOTAL:</span> <span>${fBRL(it.venda * it.qtd)}</span></div><div class="separador"></div><div class="centro" style="margin-top: 15px;">${new Date().toLocaleString('pt-BR')}<br>*** FIM DO CUPOM ***</div></body></html>`);
         win.document.close();
     }
 
@@ -409,14 +436,14 @@
             const it = db_lancamentos[c.value];
             totalL += it.lucroTot;
             totalC += (it.custo + it.gasto) * it.qtd;
-            linhas += `<tr><td>${it.dataBR}</td><td>${it.comprador}</td><td>${it.fornecedor}</td><td>${it.nome}</td><td align="center">${it.qtd}</td><td>R$ ${it.custo.toFixed(2)}</td><td>R$ ${it.venda.toFixed(2)}</td><td>R$ ${it.gasto.toFixed(2)}</td><td><b>R$ ${it.lucroUn.toFixed(2)}</b></td><td><b>R$ ${it.lucroTot.toFixed(2)}</b></td></tr>`;
+            linhas += `<tr><td>${it.dataBR}</td><td>${it.comprador}</td><td>${it.fornecedor}</td><td>${it.nome}</td><td align="center">${it.qtd}</td><td>${fBRL(it.custo)}</td><td>${fBRL(it.venda)}</td><td>${fBRL(it.gasto)}</td><td><b>${fBRL(it.lucroUn)}</b></td><td><b>${fBRL(it.lucroTot)}</b></td></tr>`;
         });
         const win = window.open('', '', 'width=1100');
-        win.document.write(`<html><head><style>@page { size: landscape; } body { font-family: sans-serif; font-size: 12px; } table { width:100%; border-collapse:collapse; } th, td { border:1px solid #ccc; padding:8px; } th { background:#eee; }</style></head><body><h2>Relatório Colméia</h2><table><thead><tr><th>Data</th><th>Comprador</th><th>Fornecedor</th><th>Produto</th><th>Qtd</th><th>Custo Un</th><th>Venda Un</th><th>Gasto Ex</th><th>Lucro Un</th><th>Lucro Total</th></tr></thead><tbody>${linhas}</tbody></table><div style="margin-top:20px; text-align:right">CUSTO TOTAL: <b>R$ ${totalC.toFixed(2)}</b> | LUCRO TOTAL: <b style="font-size:18px; color:#1a73e8">R$ ${totalL.toFixed(2)}</b></div></body></html>`);
+        win.document.write(`<html><head><style>@page { size: landscape; } body { font-family: sans-serif; font-size: 12px; } table { width:100%; border-collapse:collapse; } th, td { border:1px solid #ccc; padding:8px; } th { background:#eee; }</style></head><body><h2>Relatório Colméia</h2><table><thead><tr><th>Data</th><th>Comprador</th><th>Fornecedor</th><th>Produto</th><th>Qtd</th><th>Custo Un</th><th>Venda Un</th><th>Gasto Ex</th><th>Lucro Un</th><th>Lucro Total</th></tr></thead><tbody>${linhas}</tbody></table><div style="margin-top:20px; text-align:right">CUSTO TOTAL: <b>${fBRL(totalC)}</b> | LUCRO TOTAL: <b style="font-size:18px; color:#1a73e8">${fBRL(totalL)}</b></div></body></html>`);
         win.document.close(); win.print();
     }
 
-    // Gestão de cadastros na nuvem corrigida
+    // Cadastros na nuvem
     function abrirCadastro(tipo) { 
         document.getElementById('modalCad').style.display = 'block'; 
         document.getElementById('tituloCad').innerText = "Gestão de " + tipo; 
