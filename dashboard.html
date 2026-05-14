@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Colméia - Painel de Lucros e Margens</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+        body { background-color: #f4f7f6; margin: 0; padding: 0; color: #333; }
+        
+        header { background-color: #8e44ad; color: white; padding: 15px; display: flex; align-items: center; justify-content: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        main { max-width: 1400px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        .toolbar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 25px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .filtros { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        input[type="date"] { padding: 8px; border-radius: 5px; border: 1px solid #ccc; font-size: 13px; }
+        
+        .btn { border: none; padding: 10px 15px; font-size: 13px; cursor: pointer; border-radius: 6px; font-weight: bold; color: white; transition: 0.2s; text-decoration: none; display: inline-block; }
+        .btn-voltar { background-color: #1a73e8; }
+        
+        /* Cards de Resumo */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .card { padding: 20px; border-radius: 8px; color: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .card-custo { background-color: #e67e22; }
+        .card-faturamento { background-color: #3498db; }
+        .card-lucro { background-color: #2ecc71; }
+        .card h3 { margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
+        .card p { margin: 0; font-size: 24px; font-weight: bold; }
+
+        /* Blocos de Destaque Maior/Menor Lucro */
+        .destaques-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .destaque-box { padding: 15px; border-radius: 8px; border: 1px solid #ddd; background: #fff; display: flex; flex-direction: column; justify-content: center; }
+        .destaque-box.maior { border-left: 6px solid #2ecc71; }
+        .destaque-box.menor { border-left: 6px solid #e74c3c; }
+        .destaque-box h4 { margin: 0 0 5px 0; font-size: 12px; color: #666; text-transform: uppercase; }
+        .destaque-box .prod-nome { font-size: 16px; font-weight: bold; color: #222; margin-bottom: 5px; }
+        .destaque-box .prod-valores { font-size: 13px; color: #444; }
+
+        /* Tabela */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background-color: #f1f3f4; color: #5f6368; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:hover { background-color: #fafafa; }
+        .badge-porcentagem { background: #e8f0fe; color: #1a73e8; padding: 4px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<header>
+    <img src="https://i.postimg.cc/cCj4sBRm/branco.png" alt="Logo" style="height: 40px;">
+    <h1 style="margin:0; font-size: 20px;">Painel de Desempenho e Lucratividade</h1>
+</header>
+
+<main>
+    <div class="toolbar">
+        <div class="filtros">
+            <label><strong>Análise por Período:</strong></label>
+            <input type="date" id="dashDataIn" onchange="processarDashboard()">
+            <span>até</span>
+            <input type="date" id="dashDataFim" onchange="processarDashboard()">
+        </div>
+        <div>
+            <a href="index.html" class="btn btn-voltar">⬅️ Voltar para Lançamentos</a>
+        </div>
+    </div>
+
+    <div class="cards-grid">
+        <div class="card card-custo">
+            <h3>Custo Total do Período</h3>
+            <p id="txtTotalCusto">R$ 0.00</p>
+        </div>
+        <div class="card card-faturamento">
+            <h3>Faturamento Bruto</h3>
+            <p id="txtTotalVenda">R$ 0.00</p>
+        </div>
+        <div class="card card-lucro">
+            <h3>Lucro Líquido Real</h3>
+            <p id="txtTotalLucro">R$ 0.00</p>
+        </div>
+    </div>
+
+    <div class="destaques-grid">
+        <div class="destaque-box maior">
+            <h4>🏆 Produto com Maior Lucro Acumulado</h4>
+            <div id="maiorLucroNome" class="prod-nome">Nenhum dado no período</div>
+            <div id="maiorLucroValores" class="prod-valores"></div>
+        </div>
+        <div class="destaque-box menor">
+            <h4>⚠️ Produto com Menor Lucro Acumulado</h4>
+            <div id="menorLucroNome" class="prod-nome">Nenhum dado no período</div>
+            <div id="menorLucroValores" class="prod-valores"></div>
+        </div>
+    </div>
+
+    <h2>Análise Geral por Produto</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Código / Produto</th>
+                <th style="text-align: center;">Qtd Vendida</th>
+                <th>Custo Total Acum.</th>
+                <th>Venda Total Acum.</th>
+                <th>Lucro Total (R$)</th>
+                <th>Margem Real Obtida (%)</th>
+            </tr>
+        </thead>
+        <tbody id="corpoDashboard"></tbody>
+    </table>
+</main>
+
+<script>
+    let db_lancamentos = JSON.parse(localStorage.getItem('lancamentos')) || [];
+
+    window.onload = () => {
+        // Define o filtro inicial para o dia de hoje
+        const hoje = new Date().toISOString().split('T')[0];
+        document.getElementById('dashDataIn').value = hoje;
+        document.getElementById('dashDataFim').value = hoje;
+        processarDashboard();
+    };
+
+    function processarDashboard() {
+        const dataIn = document.getElementById('dashDataIn').value;
+        const dataFim = document.getElementById('dashDataFim').value;
+        const tbody = document.getElementById('corpoDashboard');
+        tbody.innerHTML = "";
+
+        if (!dataIn || !dataFim) return;
+
+        let financeiro = { custo: 0, faturamento: 0, lucro: 0 };
+        let produtosAgrupados = {};
+
+        // 1. Filtrar lançamentos e agrupar por produto
+        db_lancamentos.forEach(it => {
+            if (it.dataRAW >= dataIn && it.dataRAW <= dataFim) {
+                // Cálculo de custos do item considerando o gasto extra unitário
+                const custoTotalItem = (it.custo + (it.gasto || 0)) * it.qtd;
+                const vendaTotalItem = it.venda * it.qtd;
+                const lucroTotalItem = it.lucroTot;
+
+                // Somatórios globais do topo
+                financeiro.custo += custoTotalItem;
+                financeiro.faturamento += vendaTotalItem;
+                financeiro.lucro += lucroTotalItem;
+
+                // Agrupamento por produto para a tabela
+                if (!produtosAgrupados[it.nome]) {
+                    produtosAgrupados[it.nome] = {
+                        cod: it.cod,
+                        nome: it.nome,
+                        qtdTotal: 0,
+                        custoAcumulado: 0,
+                        vendaAcumulado: 0,
+                        lucroAcumulado: 0
+                    };
+                }
+
+                produtosAgrupados[it.nome].qtdTotal += it.qtd;
+                produtosAgrupados[it.nome].custoAcumulado += custoTotalItem;
+                produtosAgrupados[it.nome].vendaAcumulado += vendaTotalItem;
+                produtosAgrupados[it.nome].lucroAcumulado += lucroTotalItem;
+            }
+        });
+
+        // Atualizar os Cards do topo
+        document.getElementById('txtTotalCusto').innerText = `R$ ${financeiro.custo.toFixed(2)}`;
+        document.getElementById('txtTotalVenda').innerText = `R$ ${financeiro.faturamento.toFixed(2)}`;
+        document.getElementById('txtTotalLucro').innerText = `R$ ${financeiro.lucro.toFixed(2)}`;
+
+        // Transformar objeto agrupado em array para ordenar e renderizar
+        let listaProdutos = Object.values(produtosAgrupados);
+
+        if (listaProdutos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:20px;">Nenhum lançamento encontrado neste período.</td></tr>`;
+            document.getElementById('maiorLucroNome').innerText = "Nenhum dado no período";
+            document.getElementById('maiorLucroValores').innerText = "";
+            document.getElementById('menorLucroNome').innerText = "Nenhum dado no período";
+            document.getElementById('menorLucroValores').innerText = "";
+            return;
+        }
+
+        // 2. Identificar Maior e Menor Lucro do período
+        listaProdutos.sort((a, b) => b.lucroAcumulado - a.lucroAcumulado);
+        
+        let maisLucrativo = listaProdutos[0];
+        let menosLucrativo = listaProdutos[listaProdutos.length - 1];
+
+        if (maisLucrativo) {
+            document.getElementById('maiorLucroNome').innerText = `${maisLucrativo.nome}`;
+            document.getElementById('maiorLucroValores').innerText = `Lucro total de R$ ${maisLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${maisLucrativo.qtdTotal} unidades.`;
+        }
+        if (menosLucrativo) {
+            document.getElementById('menorLucroNome').innerText = `${menosLucrativo.nome}`;
+            document.getElementById('menorLucroValores').innerText = `Lucro total de R$ ${menosLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${menosLucrativo.qtdTotal} unidades.`;
+        }
+
+        // 3. Gerar as linhas da tabela com o cálculo de porcentagem (%)
+        listaProdutos.forEach(p => {
+            // Fórmula da Margem de Lucro Comercial sobre o faturamento daquele produto:
+            // (Lucro / Venda Total) * 100
+            let porcentagemLucro = 0;
+            if (p.vendaAcumulado > 0) {
+                porcentagemLucro = (p.lucroAcumulado / p.vendaAcumulado) * 100;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${p.cod}</b> - ${p.nome}</td>
+                    <td align="center"><b>${p.qtdTotal}</b></td>
+                    <td>R$ ${p.custoAcumulado.toFixed(2)}</td>
+                    <td>R$ ${p.vendaAcumulado.toFixed(2)}</td>
+                    <td style="font-weight:bold; color:${p.lucroAcumulado >= 0 ? 'green' : 'red'}">R$ ${p.lucroAcumulado.toFixed(2)}</td>
+                    <td><span class="badge-porcentagem">${porcentagemLucro.toFixed(1)}%</span></td>
+                </tr>
+            `;
+        });
+    }
+</script>
+</body>
+</html>
