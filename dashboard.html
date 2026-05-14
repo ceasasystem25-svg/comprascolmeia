@@ -142,3 +142,93 @@
             processarDashboard();
         });
     };
+
+    function processarDashboard() {
+        const dataIn = document.getElementById('dashDataIn').value;
+        const dataFim = document.getElementById('dashDataFim').value;
+        const tbody = document.getElementById('corpoDashboard');
+        tbody.innerHTML = "";
+
+        if (!dataIn || !dataFim) return;
+
+        let financeiro = { custo: 0, faturamento: 0, lucro: 0 };
+        let produtosAgrupados = {};
+
+        db_lancamentos.forEach(it => {
+            if (it.dataRAW >= dataIn && it.dataRAW <= dataFim) {
+                const custoTotalItem = (it.custo + (it.gasto || 0)) * it.qtd;
+                const vendaTotalItem = it.venda * it.qtd;
+                const lucroTotalItem = it.lucroTot;
+
+                financeiro.custo += custoTotalItem;
+                financeiro.faturamento += vendaTotalItem;
+                financeiro.lucro += lucroTotalItem;
+
+                if (!produtosAgrupados[it.nome]) {
+                    produtosAgrupados[it.nome] = {
+                        cod: it.cod,
+                        nome: it.nome,
+                        qtdTotal: 0,
+                        custoAcumulado: 0,
+                        vendaAcumulado: 0,
+                        lucroAcumulado: 0
+                    };
+                }
+
+                produtosAgrupados[it.nome].qtdTotal += it.qtd;
+                produtosAgrupados[it.nome].custoAcumulado += custoTotalItem;
+                produtosAgrupados[it.nome].vendaAcumulado += vendaTotalItem;
+                produtosAgrupados[it.nome].lucroAcumulado += lucroTotalItem;
+            }
+        });
+
+        document.getElementById('txtTotalCusto').innerText = `R$ ${financeiro.custo.toFixed(2)}`;
+        document.getElementById('txtTotalVenda').innerText = `R$ ${financeiro.faturamento.toFixed(2)}`;
+        document.getElementById('txtTotalLucro').innerText = `R$ ${financeiro.lucro.toFixed(2)}`;
+
+        let listaProdutos = Object.values(produtosAgrupados);
+
+        if (listaProdutos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#999; padding:20px;">Nenhum lançamento encontrado neste período.</td></tr>`;
+            document.getElementById('maiorLucroNome').innerText = "Nenhum dado no período";
+            document.getElementById('maiorLucroValores').innerText = "";
+            document.getElementById('menorLucroNome').innerText = "Nenhum dado no período";
+            document.getElementById('menorLucroValores').innerText = "";
+            return;
+        }
+
+        listaProdutos.sort((a, b) => b.lucroAcumulado - a.lucroAcumulado);
+        
+        let maisLucrativo = listaProdutos[0];
+        let menosLucrativo = listaProdutos[listaProdutos.length - 1];
+
+        if (maisLucrativo) {
+            document.getElementById('maiorLucroNome').innerText = `${maisLucrativo.nome}`;
+            document.getElementById('maiorLucroValores').innerText = `Lucro total de R$ ${maisLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${maisLucrativo.qtdTotal} unidades.`;
+        }
+        if (menosLucrativo) {
+            document.getElementById('menorLucroNome').innerText = `${menosLucrativo.nome}`;
+            document.getElementById('menorLucroValores').innerText = `Lucro total de R$ ${menosLucrativo.lucroAcumulado.toFixed(2)} acumulado em ${menosLucrativo.qtdTotal} unidades.`;
+        }
+
+        listaProdutos.forEach(p => {
+            let porcentagemLucro = 0;
+            if (p.vendaAcumulado > 0) {
+                porcentagemLucro = (p.lucroAcumulado / p.vendaAcumulado) * 100;
+            }
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>${p.cod}</b> - ${p.nome}</td>
+                    <td align="center"><b>${p.qtdTotal}</b></td>
+                    <td>R$ ${p.custoAcumulado.toFixed(2)}</td>
+                    <td>R$ ${p.vendaAcumulado.toFixed(2)}</td>
+                    <td style="font-weight:bold; color:${p.lucroAcumulado >= 0 ? 'green' : 'red'}">R$ ${p.lucroAcumulado.toFixed(2)}</td>
+                    <td><span class="badge-porcentagem">${porcentagemLucro.toFixed(1)}%</span></td>
+                </tr>
+            `;
+        });
+    }
+</script>
+</body>
+</html>
