@@ -28,6 +28,7 @@
         .btn-imprimir { background-color: #6c757d; }
         .btn-dashboard { background-color: #8e44ad; }
         .btn-finalizar { background-color: #1a73e8; width: 100%; padding: 15px; margin-top: 20px; font-size: 16px; font-weight: bold; }
+        .btn-cupom-topo { background-color: #17a2b8; } /* Estilo para o novo botão de cupom no topo */
 
         .btn-acao { padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer; color: white; margin-right: 2px; }
         .btn-editar { background-color: #fbbc05; color: #333; }
@@ -63,7 +64,7 @@
 
 <header>
     <img src="https://i.postimg.cc/cCj4sBRm/branco.png" alt="Logo" style="height: 40px;">
-    <h1 style="margin:0; font-size: 20px;">Sistema Colméia -COMPRAS</h1>
+    <h1 style="margin:0; font-size: 20px;">Sistema Colméia - COMPRAS</h1>
 </header>
 
 <main>
@@ -78,6 +79,7 @@
         <div class="acoes">
             <a href="dashboard.html" class="btn btn-dashboard">📊 Painel</a>
             <button class="btn btn-imprimir" onclick="imprimirLista()">🖨️ Relatório</button>
+            <button class="btn btn-cupom-topo" onclick="imprimirCuponsSelecionados()">🎫 Imprimir Cupons</button>
             <button class="btn btn-comprador" onclick="abrirCadastro('compradores')">👤 Compradores</button>
             <button class="btn btn-fornecedor" onclick="abrirCadastro('fornecedores')">👥 Fornecedores</button>
             <button class="btn btn-novo" onclick="abrirModalLote()">+Nova Compra</button>
@@ -421,10 +423,73 @@
         document.getElementById('prodGasto').value = it.gasto;
     }
 
+    // Mantido o botão de imprimir cupom individual caso queira usar na linha da tabela
     function imprimirCupom(idx) {
         const it = db_lancamentos[idx];
         const win = window.open('', '', 'width=350,height=600');
         win.document.write(`<html><head><style>@page { margin: 0; } body { width: 75mm; font-family: 'Arial', sans-serif; padding: 5mm; margin: 0; font-size: 14px; color: #000; font-weight: 700; } .centro { text-align: center; } .negrito { font-weight: 900; } .separador { border-top: 2px solid #000; margin: 8px 0; } .linha { display: flex; justify-content: space-between; margin: 3px 0; } .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }</style></head><body onload="window.print(); window.close();"><div class="centro negrito titulo">SISTEMA COLMÉIA</div><div class="centro negrito">*** LANÇAMENTO ***</div><div class="separador"></div><div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div><div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div><div class="linha"><span>FORN:</span> <span>${it.fornecedor || '---'}</span></div><div class="separador"></div><div class="negrito centro">${it.nome}</div><div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div><div class="linha"><span>CUSTO UN:</span> <span>${fBRL(it.custo)}</span></div><div class="linha"><span>VENDA UN:</span> <span>${fBRL(it.venda)}</span></div><div class="separador"></div><div class="linha negrito"><span>LUCRO UN:</span> <span>${fBRL(it.lucroUn)}</span></div><div class="linha negrito"><span>LUCRO TOTAL:</span> <span>${fBRL(it.lucroTot)}</span></div><div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;"><span>VALOR TOTAL:</span> <span>${fBRL(it.venda * it.qtd)}</span></div><div class="separador"></div><div class="centro" style="margin-top: 15px;">${new Date().toLocaleString('pt-BR')}<br>*** FIM DO CUPOM ***</div></body></html>`);
+        win.document.close();
+    }
+
+    // Nova função para imprimir vários cupons térmicos ao mesmo tempo
+    function imprimirCuponsSelecionados() {
+        const marcados = document.querySelectorAll('.chk-item:checked');
+        
+        if (marcados.length === 0) {
+            return alert("Selecione pelo menos um lançamento na tabela para imprimir!");
+        }
+
+        let cuponsHTML = "";
+
+        marcados.forEach(c => {
+            const it = db_lancamentos[c.value];
+            cuponsHTML += `
+                <div class="cupom">
+                    <div class="centro negrito titulo">SISTEMA COLMÉIA</div>
+                    <div class="centro negrito">*** LANÇAMENTO ***</div>
+                    <div class="separador"></div>
+                    <div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div>
+                    <div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div>
+                    <div class="linha"><span>FORN:</span> <span>${it.fornecedor || '---'}</span></div>
+                    <div class="separador"></div>
+                    <div class="negrito centro">${it.nome}</div>
+                    <div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div>
+                    <div class="linha"><span>CUSTO UN:</span> <span>${fBRL(it.custo)}</span></div>
+                    <div class="linha"><span>VENDA UN:</span> <span>${fBRL(it.venda)}</span></div>
+                    <div class="separador"></div>
+                    <div class="linha negrito"><span>LUCRO UN:</span> <span>${fBRL(it.lucroUn)}</span></div>
+                    <div class="linha negrito"><span>LUCRO TOTAL:</span> <span>${fBRL(it.lucroTot)}</span></div>
+                    <div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;">
+                        <span>VALOR TOTAL:</span> <span>${fBRL(it.venda * it.qtd)}</span>
+                    </div>
+                    <div class="separador"></div>
+                    <div class="centro" style="margin-top: 15px;">
+                        ${new Date().toLocaleString('pt-BR')}<br>*** FIM DO CUPOM ***
+                    </div>
+                </div>
+            `;
+        });
+
+        const win = window.open('', '', 'width=350,height=600');
+        win.document.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; } 
+                    body { width: 75mm; font-family: 'Arial', sans-serif; margin: 0; font-size: 14px; color: #000; font-weight: 700; } 
+                    .cupom { padding: 5mm; page-break-after: always; }
+                    .centro { text-align: center; } 
+                    .negrito { font-weight: 900; } 
+                    .separador { border-top: 2px dashed #000; margin: 8px 0; } 
+                    .linha { display: flex; justify-content: space-between; margin: 3px 0; } 
+                    .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${cuponsHTML}
+            </body>
+            </html>
+        `);
         win.document.close();
     }
 
