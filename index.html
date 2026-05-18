@@ -28,7 +28,8 @@
         .btn-imprimir { background-color: #6c757d; }
         .btn-dashboard { background-color: #8e44ad; }
         .btn-finalizar { background-color: #1a73e8; width: 100%; padding: 15px; margin-top: 20px; font-size: 16px; font-weight: bold; }
-        .btn-cupom-topo { background-color: #17a2b8; }
+        .btn-cupom-ind { background-color: #17a2b8; } /* Azul claro para individual */
+        .btn-cupom-agr { background-color: #20c997; } /* Verde água para agrupado */
 
         .btn-acao { padding: 5px 8px; border-radius: 4px; border: none; cursor: pointer; color: white; margin-right: 2px; }
         .btn-editar { background-color: #fbbc05; color: #333; }
@@ -78,7 +79,11 @@
         <div class="acoes">
             <a href="dashboard.html" class="btn btn-dashboard">📊 Painel</a>
             <button class="btn btn-imprimir" onclick="imprimirLista()">🖨️ Relatório</button>
-            <button class="btn btn-cupom-topo" onclick="imprimirCupomAgrupado()">🎫 Impressão Agrupada</button>
+            
+            <!-- NOVOS BOTÕES DE CUPOM -->
+            <button class="btn btn-cupom-ind" onclick="imprimirCuponsIndividuais()">🎫 Impressão Individual</button>
+            <button class="btn btn-cupom-agr" onclick="imprimirCupomAgrupado()">📦 Impressão Agrupada</button>
+            
             <button class="btn btn-comprador" onclick="abrirCadastro('compradores')">👤 Compradores</button>
             <button class="btn btn-fornecedor" onclick="abrirCadastro('fornecedores')">👥 Fornecedores</button>
             <button class="btn btn-novo" onclick="abrirModalLote()">+Nova Compra</button>
@@ -421,7 +426,74 @@
         document.getElementById('prodGasto').value = it.gasto;
     }
 
-    // NOVA FUNÇÃO: Imprimir em lote e agrupando itens iguais em um único cupom
+    // FUNÇÃO 1: Imprimir vários cupons individualmente em sequência (cortando papel entre eles)
+    function imprimirCuponsIndividuais() {
+        const marcados = document.querySelectorAll('.chk-item:checked');
+        
+        if (marcados.length === 0) {
+            return alert("Selecione pelo menos um lançamento na tabela para imprimir individualmente!");
+        }
+
+        let cuponsHTML = "";
+
+        marcados.forEach(c => {
+            const it = db_lancamentos[c.value];
+            cuponsHTML += `
+                <div class="cupom">
+                    <div class="centro negrito titulo">SISTEMA COLMÉIA</div>
+                    <div class="centro negrito">*** LANÇAMENTO ***</div>
+                    <div class="separador"></div>
+                    <div class="linha"><span>DATA:</span> <span>${it.dataBR}</span></div>
+                    <div class="linha"><span>COMPRADOR:</span> <span>${it.comprador}</span></div>
+                    
+                    <!-- Destaque para o Fornecedor no cupom individual -->
+                    <div class="linha" style="font-size: 15px; border: 1px solid #000; padding: 2px; margin-top: 5px; margin-bottom: 5px;">
+                        <span class="negrito">FORN:</span> <span class="negrito">${it.fornecedor || '---'}</span>
+                    </div>
+                    
+                    <div class="separador"></div>
+                    <div class="negrito centro">${it.nome}</div>
+                    <div class="linha"><span>QUANTIDADE:</span> <span>${it.qtd}</span></div>
+                    <div class="linha"><span>CUSTO UN:</span> <span>${fBRL(it.custo)}</span></div>
+                    <div class="linha"><span>VENDA UN:</span> <span>${fBRL(it.venda)}</span></div>
+                    <div class="separador"></div>
+                    <div class="linha negrito"><span>LUCRO UN:</span> <span>${fBRL(it.lucroUn)}</span></div>
+                    <div class="linha negrito"><span>LUCRO TOTAL:</span> <span>${fBRL(it.lucroTot)}</span></div>
+                    <div class="linha negrito" style="font-size: 16px; margin-top: 5px; border: 1px solid #000; padding: 2px;">
+                        <span>VALOR TOTAL:</span> <span>${fBRL(it.venda * it.qtd)}</span>
+                    </div>
+                    <div class="separador"></div>
+                    <div class="centro" style="margin-top: 15px;">
+                        ${new Date().toLocaleString('pt-BR')}<br>*** FIM DO CUPOM ***
+                    </div>
+                </div>
+            `;
+        });
+
+        const win = window.open('', '', 'width=350,height=600');
+        win.document.write(`
+            <html>
+            <head>
+                <style>
+                    @page { margin: 0; } 
+                    body { width: 75mm; font-family: 'Arial', sans-serif; margin: 0; font-size: 14px; color: #000; font-weight: 700; } 
+                    .cupom { padding: 5mm; page-break-after: always; }
+                    .centro { text-align: center; } 
+                    .negrito { font-weight: 900; } 
+                    .separador { border-top: 2px dashed #000; margin: 8px 0; } 
+                    .linha { display: flex; justify-content: space-between; margin: 3px 0; } 
+                    .titulo { font-size: 18px; margin-bottom: 5px; text-transform: uppercase; }
+                </style>
+            </head>
+            <body onload="window.print(); window.close();">
+                ${cuponsHTML}
+            </body>
+            </html>
+        `);
+        win.document.close();
+    }
+
+    // FUNÇÃO 2: Imprimir em lote agrupando itens com mesmo NOME e FORNECEDOR
     function imprimirCupomAgrupado() {
         const marcados = document.querySelectorAll('.chk-item:checked');
         
@@ -434,19 +506,24 @@
         let totalGeralLucro = 0;
         let totalGeralQtd = 0;
 
-        // Agrupando por Nome do Produto
+        // Agrupando por Nome do Produto E Fornecedor
         marcados.forEach(c => {
             const it = db_lancamentos[c.value];
-            if (!agrupado[it.nome]) {
-                agrupado[it.nome] = { 
+            const forn = it.fornecedor || '---';
+            const chave = it.nome + ' | Forn: ' + forn;
+            
+            if (!agrupado[chave]) {
+                agrupado[chave] = { 
+                    nome: it.nome,
+                    forn: forn,
                     qtd: 0, 
                     vendaTotal: 0,
                     lucroTotal: 0
                 };
             }
-            agrupado[it.nome].qtd += parseFloat(it.qtd);
-            agrupado[it.nome].vendaTotal += (parseFloat(it.venda) * parseFloat(it.qtd));
-            agrupado[it.nome].lucroTotal += parseFloat(it.lucroTot);
+            agrupado[chave].qtd += parseFloat(it.qtd);
+            agrupado[chave].vendaTotal += (parseFloat(it.venda) * parseFloat(it.qtd));
+            agrupado[chave].lucroTotal += parseFloat(it.lucroTot);
 
             totalGeralVenda += (parseFloat(it.venda) * parseFloat(it.qtd));
             totalGeralLucro += parseFloat(it.lucroTot);
@@ -455,11 +532,12 @@
 
         let linhasItens = "";
         
-        // Montando o HTML dos itens agrupados
-        for (let nome in agrupado) {
-            const obj = agrupado[nome];
+        // Montando o HTML dos itens agrupados com a identificação do Fornecedor
+        for (let chave in agrupado) {
+            const obj = agrupado[chave];
             linhasItens += `
-                <div class="negrito" style="margin-top: 5px;">${nome}</div>
+                <div class="negrito" style="margin-top: 5px; font-size: 15px;">${obj.nome}</div>
+                <div class="linha negrito" style="font-size: 12px; margin-bottom: 3px;"><span>Forn:</span> <span>${obj.forn}</span></div>
                 <div class="linha"><span>QTD TOTAL:</span> <span>${obj.qtd}</span></div>
                 <div class="linha"><span>LUCRO TOTAL:</span> <span>${fBRL(obj.lucroTotal)}</span></div>
                 <div class="linha"><span>VALOR TOTAL:</span> <span>${fBRL(obj.vendaTotal)}</span></div>
